@@ -1,6 +1,6 @@
 package com.hisham.todolist.di
 
-import com.hisham.todolist.data.repository.FakeAuthRepository
+import com.hisham.todolist.data.repository.AuthRepositoryImpl
 import com.hisham.todolist.data.repository.SettingsRepositoryImpl
 import com.hisham.todolist.data.repository.TaskRepositoryImpl
 import com.hisham.todolist.domain.repository.AuthRepository
@@ -25,7 +25,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAuthRepository(
-        fakeAuthRepository: FakeAuthRepository,
+        authRepositoryImpl: AuthRepositoryImpl,
     ): AuthRepository
 
     @Binds
