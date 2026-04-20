@@ -1,5 +1,6 @@
 package com.hisham.todolist.domain.usecase
 
+import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.UserSession
 import com.hisham.todolist.domain.repository.AuthRepository
@@ -90,7 +91,7 @@ class InitializeAppUseCaseTest {
         private val session: UserSession? = null,
         private val shouldFailOnGetSession: Boolean = false,
     ) : AuthRepository {
-        override fun observeAuthState() = emptyFlow()
+        override fun observeAuthState(): Flow<AuthState> = emptyFlow()
 
         override suspend fun getCurrentSession(): UserSession? {
             if (shouldFailOnGetSession) {
