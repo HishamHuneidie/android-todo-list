@@ -55,6 +55,8 @@ fun LoaderRoute(
 
 @Composable
 private fun LoaderScreen() {
+    val loaderDotColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -127,7 +129,7 @@ private fun LoaderScreen() {
             modifier = Modifier.size(64.dp),
         ) {
             drawCircle(
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f),
+                color = loaderDotColor,
                 radius = size.minDimension / 2,
             )
         }
