@@ -22,9 +22,9 @@ class GoogleCredentialAuthClient @Inject constructor(
     private val credentialManager = CredentialManager.create(context)
 
     suspend fun signIn(webClientId: String): UserSession {
-        if (webClientId.isBlank()) {
+        if (webClientId.isMissingGoogleSignInConfig()) {
             throw IllegalStateException(
-                "Falta GOOGLE_WEB_CLIENT_ID. Configura esa propiedad de Gradle para activar el login con Google.",
+                "Falta GOOGLE_WEB_CLIENT_ID. Reemplaza el placeholder con tu OAuth Web Client ID real de Google en gradle.properties o local.properties.",
             )
         }
 
@@ -54,7 +54,10 @@ class GoogleCredentialAuthClient @Inject constructor(
         val googleCredential = try {
             GoogleIdTokenCredential.createFrom(credential.data)
         } catch (exception: GoogleIdTokenParsingException) {
-            throw IllegalStateException("La credencial de Google no se pudo interpretar.", exception)
+            throw IllegalStateException(
+                "La credencial de Google no se pudo interpretar.",
+                exception
+            )
         }
 
         val email = googleCredential.id
@@ -75,5 +78,17 @@ class GoogleCredentialAuthClient @Inject constructor(
         val digest = MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(rawNonce.toByteArray())
         return hash.joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }
+
+    private fun String.isMissingGoogleSignInConfig(): Boolean {
+        if (isBlank()) return true
+
+        val normalizedValue = trim()
+        return normalizedValue.contains(
+            "REPLACE_WITH_YOUR_GOOGLE_WEB_CLIENT_ID",
+            ignoreCase = true
+        ) ||
+                normalizedValue.contains("TODO", ignoreCase = true) ||
+                normalizedValue.contains("PLACEHOLDER", ignoreCase = true)
     }
 }

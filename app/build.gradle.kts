@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -11,7 +12,17 @@ plugins {
 android {
     namespace = "com.hisham.todolist"
     compileSdk = 36
-    val googleWebClientId = providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orElse("")
+    val localProperties = Properties().apply {
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use(::load)
+        }
+    }
+    val googleWebClientId = (
+            localProperties.getProperty("GOOGLE_WEB_CLIENT_ID")
+                ?: providers.gradleProperty("GOOGLE_WEB_CLIENT_ID").orNull
+                ?: error("Missing GOOGLE_WEB_CLIENT_ID in local.properties or gradle.properties")
+            ).replace("\\", "\\\\").replace("\"", "\\\"")
 
     defaultConfig {
         applicationId = "com.hisham.todolist"
@@ -31,14 +42,14 @@ android {
             buildConfigField(
                 "String",
                 "GOOGLE_WEB_CLIENT_ID",
-                "\"${googleWebClientId.get()}\"",
+                "\"$googleWebClientId\"",
             )
         }
         release {
             buildConfigField(
                 "String",
                 "GOOGLE_WEB_CLIENT_ID",
-                "\"${googleWebClientId.get()}\"",
+                "\"$googleWebClientId\"",
             )
             isMinifyEnabled = false
             proguardFiles(
