@@ -5,6 +5,9 @@ import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.UserSession
 import com.hisham.todolist.domain.repository.AuthRepository
 import com.hisham.todolist.domain.repository.TaskRepository
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
@@ -17,6 +20,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InitializeAppUseCaseTest {
+
+    private val fixedClock: Clock = Clock.fixed(
+        Instant.parse("2026-04-21T08:00:00Z"),
+        ZoneOffset.UTC,
+    )
 
     @Test
     fun `returns session and prepared tasks when initialization succeeds`() = runTest {
@@ -32,6 +40,7 @@ class InitializeAppUseCaseTest {
             checkUserSessionUseCase = CheckUserSessionUseCase(FakeAuthRepository(session = session)),
             prepareTasksForCurrentDayUseCase = PrepareTasksForCurrentDayUseCase(
                 taskRepository = FakeTaskRepository(tasksFlow = flowOf(listOf(task))),
+                clock = fixedClock,
             ),
         )
 
@@ -50,6 +59,7 @@ class InitializeAppUseCaseTest {
             checkUserSessionUseCase = CheckUserSessionUseCase(FakeAuthRepository(shouldFailOnGetSession = true)),
             prepareTasksForCurrentDayUseCase = PrepareTasksForCurrentDayUseCase(
                 taskRepository = FakeTaskRepository(tasksFlow = flowOf(listOf(task))),
+                clock = fixedClock,
             ),
         )
 
@@ -77,6 +87,7 @@ class InitializeAppUseCaseTest {
                         throw IllegalStateException("db unavailable")
                     },
                 ),
+                clock = fixedClock,
             ),
         )
 

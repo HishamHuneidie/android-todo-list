@@ -18,6 +18,8 @@ data class TaskEntity(
     val isRecurrent: Boolean,
     @ColumnInfo(name = "recurrence_days")
     val recurrenceDays: Set<DayOfWeek>,
+    @ColumnInfo(name = "state_date_epoch_day")
+    val stateDateEpochDay: Long?,
     val category: TaskCategory?,
     @ColumnInfo(name = "icon_name")
     val iconName: String?,

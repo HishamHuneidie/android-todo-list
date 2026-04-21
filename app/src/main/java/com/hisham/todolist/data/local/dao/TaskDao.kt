@@ -21,11 +21,29 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE id = :taskId")
     suspend fun deleteTaskById(taskId: Long)
 
-    @Query("UPDATE tasks SET is_completed = :isCompleted, updated_at = :updatedAt WHERE id = :taskId")
-    suspend fun updateCompletion(taskId: Long, isCompleted: Boolean, updatedAt: Long)
+    @Query(
+        "UPDATE tasks " +
+            "SET is_completed = :isCompleted, state_date_epoch_day = :stateDateEpochDay, updated_at = :updatedAt " +
+            "WHERE id = :taskId",
+    )
+    suspend fun updateCompletion(
+        taskId: Long,
+        isCompleted: Boolean,
+        updatedAt: Long,
+        stateDateEpochDay: Long?,
+    )
 
-    @Query("UPDATE tasks SET progress = :progress, updated_at = :updatedAt WHERE id = :taskId")
-    suspend fun updateProgress(taskId: Long, progress: Int, updatedAt: Long)
+    @Query(
+        "UPDATE tasks " +
+            "SET progress = :progress, state_date_epoch_day = :stateDateEpochDay, updated_at = :updatedAt " +
+            "WHERE id = :taskId",
+    )
+    suspend fun updateProgress(
+        taskId: Long,
+        progress: Int,
+        updatedAt: Long,
+        stateDateEpochDay: Long?,
+    )
 
     @Query("UPDATE tasks SET position = :position, updated_at = :updatedAt WHERE id = :taskId")
     suspend fun updatePosition(taskId: Long, position: Int, updatedAt: Long)

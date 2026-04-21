@@ -8,6 +8,9 @@ import com.hisham.todolist.domain.repository.TaskRepository
 import com.hisham.todolist.domain.usecase.CheckUserSessionUseCase
 import com.hisham.todolist.domain.usecase.InitializeAppUseCase
 import com.hisham.todolist.domain.usecase.PrepareTasksForCurrentDayUseCase
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +28,11 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoaderViewModelTest {
+    private val fixedClock: Clock = Clock.fixed(
+        Instant.parse("2026-04-21T08:00:00Z"),
+        ZoneOffset.UTC,
+    )
+
     @Test
     fun `emits authenticated when initialization returns a session`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -111,6 +119,7 @@ class LoaderViewModelTest {
         checkUserSessionUseCase = CheckUserSessionUseCase(FakeAuthRepository(session = session)),
         prepareTasksForCurrentDayUseCase = PrepareTasksForCurrentDayUseCase(
             taskRepository = FakeTaskRepository(tasksFlow = tasksFlow),
+            clock = fixedClock,
         ),
     )
 

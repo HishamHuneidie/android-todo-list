@@ -23,7 +23,7 @@ object DatabaseModule {
         context,
         AppDatabase::class.java,
         "todo-list.db",
-    ).build()
+    ).fallbackToDestructiveMigration().build()
 
     @Provides
     fun provideTaskDao(

@@ -3,8 +3,11 @@ package com.hisham.todolist.data.repository
 import androidx.room.withTransaction
 import com.hisham.todolist.data.local.dao.TaskDao
 import com.hisham.todolist.data.local.database.AppDatabase
+import com.hisham.todolist.data.local.entity.TaskEntity
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.repository.TaskRepository
+import java.time.Clock
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.map
 class TaskRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val taskDao: TaskDao,
+    private val clock: Clock,
 ) : TaskRepository {
 
     override fun observeTasks(): Flow<List<Task>> =
@@ -22,7 +26,7 @@ class TaskRepositoryImpl @Inject constructor(
     override suspend fun getTask(taskId: Long): Task? = taskDao.getTaskById(taskId)?.toDomain()
 
     override suspend fun upsertTask(task: Task) {
-        taskDao.upsertTask(task.copy(updatedAt = System.currentTimeMillis()).toEntity())
+        taskDao.upsertTask(task.copy(updatedAt = clock.millis()).toEntity())
     }
 
     override suspend fun deleteTask(taskId: Long) {
@@ -30,30 +34,42 @@ class TaskRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) {
+        val task = taskDao.getTaskById(taskId) ?: return
         taskDao.updateCompletion(
             taskId = taskId,
             isCompleted = isCompleted,
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = clock.millis(),
+            stateDateEpochDay = task.stateDateForInteraction(),
         )
     }
 
     override suspend fun updateTaskProgress(taskId: Long, progress: Int) {
+        val task = taskDao.getTaskById(taskId) ?: return
         taskDao.updateProgress(
             taskId = taskId,
             progress = progress.coerceIn(0, 100),
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = clock.millis(),
+            stateDateEpochDay = task.stateDateForInteraction(),
         )
     }
 
     override suspend fun reorderTasks(taskIdsInOrder: List<Long>) {
+        val updatedAt = clock.millis()
         database.withTransaction {
             taskIdsInOrder.forEachIndexed { index, taskId ->
                 taskDao.updatePosition(
                     taskId = taskId,
                     position = index,
-                    updatedAt = System.currentTimeMillis(),
+                    updatedAt = updatedAt,
                 )
             }
         }
     }
+
+    private fun TaskEntity.stateDateForInteraction(): Long? =
+        if (isRecurrent) {
+            LocalDate.now(clock).toEpochDay()
+        } else {
+            null
+        }
 }

@@ -10,7 +10,7 @@ import com.hisham.todolist.data.local.entity.TaskEntity
 
 @Database(
     entities = [TaskEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(

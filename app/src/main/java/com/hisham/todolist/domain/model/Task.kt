@@ -9,6 +9,7 @@ data class Task(
     val progress: Int = 0,
     val isRecurrent: Boolean = false,
     val recurrenceDays: Set<DayOfWeek> = emptySet(),
+    val stateDateEpochDay: Long? = null,
     val category: TaskCategory? = null,
     val iconName: String? = null,
     val position: Int = 0,
