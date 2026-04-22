@@ -13,6 +13,8 @@ data class TaskEntity(
     val title: String,
     @ColumnInfo(name = "is_completed")
     val isCompleted: Boolean,
+    @ColumnInfo(name = "is_progress_enabled")
+    val isProgressEnabled: Boolean,
     val progress: Int,
     @ColumnInfo(name = "is_recurrent")
     val isRecurrent: Boolean,

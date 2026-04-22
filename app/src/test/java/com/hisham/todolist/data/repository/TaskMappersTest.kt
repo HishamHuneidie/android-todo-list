@@ -2,10 +2,10 @@ package com.hisham.todolist.data.repository
 
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
-import java.time.DayOfWeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.DayOfWeek
 
 class TaskMappersTest {
 
@@ -15,6 +15,7 @@ class TaskMappersTest {
             id = 9L,
             title = "Plan roadmap",
             isCompleted = true,
+            isProgressEnabled = true,
             progress = 75,
             isRecurrent = true,
             recurrenceDays = setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY),
@@ -35,6 +36,7 @@ class TaskMappersTest {
     fun `normalizes invalid progress and recurrence data`() {
         val task = Task(
             title = "Deep clean",
+            isProgressEnabled = false,
             progress = 250,
             isRecurrent = false,
             recurrenceDays = setOf(DayOfWeek.SUNDAY),
@@ -45,10 +47,12 @@ class TaskMappersTest {
         val mappedBack = entity.toDomain()
 
         assertEquals(100, entity.progress)
+        assertEquals(false, entity.isProgressEnabled)
         assertEquals(emptySet<DayOfWeek>(), entity.recurrenceDays)
         assertNull(entity.stateDateEpochDay)
 
         assertEquals(100, mappedBack.progress)
+        assertEquals(false, mappedBack.isProgressEnabled)
         assertEquals(emptySet<DayOfWeek>(), mappedBack.recurrenceDays)
         assertNull(mappedBack.stateDateEpochDay)
     }

@@ -49,6 +49,7 @@ class CreateQuickTaskUseCaseTest {
 
         requireNotNull(result)
         assertEquals("New task", result.title)
+        assertEquals(false, result.isProgressEnabled)
         assertEquals(5, result.position)
         assertEquals(fixedClock.millis(), result.createdAt)
         assertEquals(listOf("First", "Second", "New task"), repository.tasks.value.map(Task::title))

@@ -6,7 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.hisham.todolist.data.local.database.AppDatabase
 import com.hisham.todolist.data.local.entity.TaskEntity
 import com.hisham.todolist.domain.model.TaskCategory
-import java.time.DayOfWeek
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -16,6 +15,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.time.DayOfWeek
 
 @RunWith(RobolectricTestRunner::class)
 class TaskDaoTest {
@@ -101,10 +101,12 @@ class TaskDaoTest {
         position: Int = 0,
         isRecurrent: Boolean = false,
         recurrenceDays: Set<DayOfWeek> = emptySet(),
+        isProgressEnabled: Boolean = false,
     ): TaskEntity = TaskEntity(
         id = id,
         title = title,
         isCompleted = false,
+        isProgressEnabled = isProgressEnabled,
         progress = 0,
         isRecurrent = isRecurrent,
         recurrenceDays = recurrenceDays,

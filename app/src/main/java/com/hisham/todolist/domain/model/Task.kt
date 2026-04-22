@@ -6,6 +6,7 @@ data class Task(
     val id: Long = 0L,
     val title: String,
     val isCompleted: Boolean = false,
+    val isProgressEnabled: Boolean = false,
     val progress: Int = 0,
     val isRecurrent: Boolean = false,
     val recurrenceDays: Set<DayOfWeek> = emptySet(),

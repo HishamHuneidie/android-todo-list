@@ -4,11 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
-import com.hisham.todolist.domain.usecase.CreateQuickTaskUseCase
-import com.hisham.todolist.domain.usecase.GetPendingTasksUseCase
+import com.hisham.todolist.domain.usecase.ObservePendingTaskSectionsUseCase
+import com.hisham.todolist.domain.usecase.PendingTaskSections
 import com.hisham.todolist.domain.usecase.ReorderTasksUseCase
 import com.hisham.todolist.domain.usecase.ToggleTaskCompletionUseCase
-import com.hisham.todolist.domain.usecase.UpdateTaskProgressUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +21,7 @@ data class TaskListItemUiModel(
     val id: Long,
     val title: String,
     val isCompleted: Boolean,
+    val isProgressEnabled: Boolean,
     val progress: Int,
     val isRecurrent: Boolean,
     val category: TaskCategory?,
@@ -30,62 +30,50 @@ data class TaskListItemUiModel(
 
 data class TasksUiState(
     val tasks: List<TaskListItemUiModel> = emptyList(),
-    val quickAddText: String = "",
-    val isSubmittingQuickTask: Boolean = false,
+    val completedTasks: List<TaskListItemUiModel> = emptyList(),
     val draggingTaskId: Long? = null,
     val errorMessage: String? = null,
 )
 
 @HiltViewModel
 class TasksViewModel @Inject constructor(
-    getPendingTasksUseCase: GetPendingTasksUseCase,
+    observePendingTaskSectionsUseCase: ObservePendingTaskSectionsUseCase,
     private val toggleTaskCompletionUseCase: ToggleTaskCompletionUseCase,
-    private val updateTaskProgressUseCase: UpdateTaskProgressUseCase,
     private val reorderTasksUseCase: ReorderTasksUseCase,
-    private val createQuickTaskUseCase: CreateQuickTaskUseCase,
 ) : ViewModel() {
 
     private data class TasksBaseUiState(
-        val tasks: List<Task>,
-        val quickAddText: String,
-        val isSubmittingQuickTask: Boolean,
+        val sections: PendingTaskSections,
         val draggingTaskId: Long?,
         val errorMessage: String?,
     )
 
-    private val quickAddText = MutableStateFlow("")
-    private val isSubmittingQuickTask = MutableStateFlow(false)
     private val draggingTaskId = MutableStateFlow<Long?>(null)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val previewTasks = MutableStateFlow<List<TaskListItemUiModel>?>(null)
 
-    private val pendingTasks = getPendingTasksUseCase()
+    private val pendingTasks = observePendingTaskSectionsUseCase()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = emptyList(),
+            initialValue = PendingTaskSections(),
         )
 
     val uiState: StateFlow<TasksUiState> = combine(
         pendingTasks,
-        quickAddText,
-        isSubmittingQuickTask,
         draggingTaskId,
         errorMessage,
-    ) { tasks, quickAddValue, isSubmitting, draggedTaskId, error ->
+    ) { sections, draggedTaskId, error ->
         TasksBaseUiState(
-            tasks = tasks,
-            quickAddText = quickAddValue,
-            isSubmittingQuickTask = isSubmitting,
+            sections = sections,
             draggingTaskId = draggedTaskId,
             errorMessage = error,
         )
     }.combine(previewTasks) { baseState, preview ->
-        val mappedTasks = preview ?: baseState.tasks.map { task -> task.toUiModel() }
+        val mappedTasks = preview ?: baseState.sections.activeTasks.map { task -> task.toUiModel() }
         TasksUiState(
             tasks = mappedTasks,
-            quickAddText = baseState.quickAddText,
-            isSubmittingQuickTask = baseState.isSubmittingQuickTask,
+            completedTasks = baseState.sections.completedTasks.map { task -> task.toUiModel() },
             draggingTaskId = baseState.draggingTaskId,
             errorMessage = baseState.errorMessage,
         )
@@ -94,34 +82,6 @@ class TasksViewModel @Inject constructor(
         started = SharingStarted.Eagerly,
         initialValue = TasksUiState(),
     )
-
-    fun onQuickAddTextChange(value: String) {
-        quickAddText.value = value
-    }
-
-    fun onQuickAddSubmit() {
-        if (isSubmittingQuickTask.value) {
-            return
-        }
-
-        val title = quickAddText.value.trim()
-        if (title.isBlank()) {
-            quickAddText.value = ""
-            return
-        }
-
-        viewModelScope.launch {
-            isSubmittingQuickTask.value = true
-            try {
-                createQuickTaskUseCase(title)
-                quickAddText.value = ""
-            } catch (error: Exception) {
-                errorMessage.value = error.message ?: "No se pudo crear la tarea."
-            } finally {
-                isSubmittingQuickTask.value = false
-            }
-        }
-    }
 
     fun onToggleTask(
         taskId: Long,
@@ -135,22 +95,6 @@ class TasksViewModel @Inject constructor(
                 )
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: "No se pudo actualizar la tarea."
-            }
-        }
-    }
-
-    fun onUpdateTaskProgress(
-        taskId: Long,
-        progress: Int,
-    ) {
-        viewModelScope.launch {
-            try {
-                updateTaskProgressUseCase(
-                    taskId = taskId,
-                    progress = progress,
-                )
-            } catch (error: Exception) {
-                errorMessage.value = error.message ?: "No se pudo actualizar el progreso."
             }
         }
     }
@@ -208,6 +152,7 @@ class TasksViewModel @Inject constructor(
         id = id,
         title = title,
         isCompleted = isCompleted,
+        isProgressEnabled = isProgressEnabled,
         progress = progress,
         isRecurrent = isRecurrent,
         category = category,

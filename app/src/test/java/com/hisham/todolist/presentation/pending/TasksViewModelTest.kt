@@ -2,11 +2,9 @@ package com.hisham.todolist.presentation.pending
 
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.repository.TaskRepository
-import com.hisham.todolist.domain.usecase.CreateQuickTaskUseCase
-import com.hisham.todolist.domain.usecase.GetPendingTasksUseCase
+import com.hisham.todolist.domain.usecase.ObservePendingTaskSectionsUseCase
 import com.hisham.todolist.domain.usecase.ReorderTasksUseCase
 import com.hisham.todolist.domain.usecase.ToggleTaskCompletionUseCase
-import com.hisham.todolist.domain.usecase.UpdateTaskProgressUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +20,7 @@ import org.junit.Test
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -39,7 +38,13 @@ class TasksViewModelTest {
         try {
             val repository = FakeTaskRepository(
                 initialTasks = listOf(
-                    Task(id = 1L, title = "Hidden done", isCompleted = true, position = 1),
+                    Task(
+                        id = 1L,
+                        title = "Hidden done",
+                        isCompleted = true,
+                        position = 1,
+                        updatedAt = 0L
+                    ),
                     Task(id = 2L, title = "Visible", position = 0),
                     Task(
                         id = 3L,
@@ -52,12 +57,11 @@ class TasksViewModelTest {
             )
 
             val viewModel = viewModelFor(repository)
-
             advanceUntilIdle()
 
             assertEquals(
                 listOf("Visible", "Recurring today"),
-                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title)
+                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title),
             )
         } finally {
             Dispatchers.resetMain()
@@ -65,22 +69,25 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `creates quick tasks and clears the composer`() = runTest {
+    fun `keeps recurring tasks hidden when the weekday does not match`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
             val repository = FakeTaskRepository(
-                initialTasks = listOf(Task(id = 1L, title = "Existing", position = 0)),
+                initialTasks = listOf(
+                    Task(
+                        id = 1L,
+                        title = "Recurring later",
+                        isRecurrent = true,
+                        recurrenceDays = setOf(DayOfWeek.WEDNESDAY),
+                    ),
+                ),
             )
 
             val viewModel = viewModelFor(repository)
-
-            viewModel.onQuickAddTextChange("  New item  ")
-            viewModel.onQuickAddSubmit()
             advanceUntilIdle()
 
-            assertEquals("", viewModel.uiState.value.quickAddText)
-            assertEquals(listOf("Existing", "New item"), repository.tasks.value.map(Task::title))
+            assertTrue(viewModel.uiState.value.tasks.isEmpty())
         } finally {
             Dispatchers.resetMain()
         }
@@ -106,8 +113,75 @@ class TasksViewModelTest {
 
             assertEquals(
                 listOf("Second"),
-                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title)
+                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title),
             )
+            assertEquals(
+                listOf("First"),
+                viewModel.uiState.value.completedTasks.map(TaskListItemUiModel::title),
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `shows tasks completed today in the collapsed completed list`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeTaskRepository(
+                initialTasks = listOf(
+                    Task(
+                        id = 10L,
+                        title = "Completed today",
+                        isCompleted = true,
+                        updatedAt = fixedClock.millis(),
+                    ),
+                    Task(
+                        id = 11L,
+                        title = "Completed earlier",
+                        isCompleted = true,
+                        updatedAt = fixedClock.millis() - 86_400_000L,
+                    ),
+                ),
+                clock = fixedClock,
+            )
+
+            val viewModel = viewModelFor(repository)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.tasks.isEmpty())
+            assertEquals(
+                listOf("Completed today"),
+                viewModel.uiState.value.completedTasks.map(TaskListItemUiModel::title),
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `exposes progress enabled state for pending tasks`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeTaskRepository(
+                initialTasks = listOf(
+                    Task(
+                        id = 4L,
+                        title = "Progress task",
+                        isProgressEnabled = true,
+                        progress = 25,
+                    ),
+                ),
+            )
+
+            val viewModel = viewModelFor(repository)
+            advanceUntilIdle()
+
+            val task = viewModel.uiState.value.tasks.single()
+            assertTrue(task.isProgressEnabled)
+            assertEquals(25, task.progress)
         } finally {
             Dispatchers.resetMain()
         }
@@ -135,7 +209,7 @@ class TasksViewModelTest {
 
             assertEquals(
                 listOf("Second", "Third", "First"),
-                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title)
+                viewModel.uiState.value.tasks.map(TaskListItemUiModel::title),
             )
 
             viewModel.onReorderCommit(viewModel.uiState.value.tasks.map(TaskListItemUiModel::id))
@@ -143,7 +217,7 @@ class TasksViewModelTest {
 
             assertEquals(
                 listOf(2L, 3L, 1L),
-                repository.tasks.value.sortedBy(Task::position).map(Task::id)
+                repository.tasks.value.sortedBy(Task::position).map(Task::id),
             )
             assertTrue(viewModel.uiState.value.draggingTaskId == null)
         } finally {
@@ -153,21 +227,17 @@ class TasksViewModelTest {
 
     private fun viewModelFor(repository: FakeTaskRepository): TasksViewModel =
         TasksViewModel(
-            getPendingTasksUseCase = GetPendingTasksUseCase(
-                taskRepository = repository,
-                clock = fixedClock,
+            observePendingTaskSectionsUseCase = ObservePendingTaskSectionsUseCase(
+                repository,
+                fixedClock
             ),
             toggleTaskCompletionUseCase = ToggleTaskCompletionUseCase(repository),
-            updateTaskProgressUseCase = UpdateTaskProgressUseCase(repository),
             reorderTasksUseCase = ReorderTasksUseCase(repository),
-            createQuickTaskUseCase = CreateQuickTaskUseCase(
-                taskRepository = repository,
-                clock = fixedClock,
-            ),
         )
 
     private class FakeTaskRepository(
         initialTasks: List<Task>,
+        private val clock: Clock = Clock.systemUTC(),
     ) : TaskRepository {
         val tasks =
             MutableStateFlow(initialTasks.sortedWith(compareBy<Task> { it.position }.thenBy { it.id }))
@@ -192,24 +262,21 @@ class TasksViewModelTest {
         }
 
         override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) {
+            val currentEpochDay = LocalDate.now(clock).toEpochDay()
             tasks.value = tasks.value.map { task ->
                 if (task.id == taskId) {
-                    task.copy(isCompleted = isCompleted)
+                    task.copy(
+                        isCompleted = isCompleted,
+                        updatedAt = clock.millis(),
+                        stateDateEpochDay = if (task.isRecurrent) currentEpochDay else task.stateDateEpochDay,
+                    )
                 } else {
                     task
                 }
             }.sortedWith(compareBy<Task> { it.position }.thenBy { it.id })
         }
 
-        override suspend fun updateTaskProgress(taskId: Long, progress: Int) {
-            tasks.value = tasks.value.map { task ->
-                if (task.id == taskId) {
-                    task.copy(progress = progress.coerceIn(0, 100))
-                } else {
-                    task
-                }
-            }.sortedWith(compareBy<Task> { it.position }.thenBy { it.id })
-        }
+        override suspend fun updateTaskProgress(taskId: Long, progress: Int) = Unit
 
         override suspend fun reorderTasks(taskIdsInOrder: List<Long>) {
             val currentById = tasks.value.associateBy(Task::id)

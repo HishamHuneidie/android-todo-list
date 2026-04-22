@@ -1,6 +1,7 @@
 
 # Project
 .gradle
+.home
 .kotlin
 build
 */build
@@ -9,4 +10,5 @@ build
 .idea
 .docs
 .codex
+/build-codex
 local.properties
