@@ -1,7 +1,6 @@
 package com.hisham.todolist.presentation.taskmanager
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,11 +31,9 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MailOutline
-import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.WorkOutline
@@ -270,68 +267,24 @@ private fun TaskManagerHeader(onCreateTaskClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Menu,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
+        Text(
+            text = "Administracion",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
 
-            Text(
-                text = "Administracion",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
+        IconButton(
+            onClick = onCreateTaskClick,
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = "Crear tarea",
+                tint = MaterialTheme.colorScheme.onPrimary,
             )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(
-                onClick = onCreateTaskClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Add,
-                    contentDescription = "Crear tarea",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }

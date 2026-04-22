@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -125,7 +124,7 @@ private fun TasksScreen(
             )
         }
 
-        BoxWithConstraints(
+        Box(
             modifier = Modifier.weight(1f),
         ) {
             val itemCorner = 18.dp
@@ -259,12 +258,15 @@ private fun PendingHeader(taskCount: Int) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(6.dp, 7.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = "Pendientes",
                 style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
