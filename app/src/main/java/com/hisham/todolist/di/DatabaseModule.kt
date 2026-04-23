@@ -2,6 +2,7 @@ package com.hisham.todolist.di
 
 import android.content.Context
 import androidx.room.Room
+import com.hisham.todolist.data.local.dao.TaskCompletionRecordDao
 import com.hisham.todolist.data.local.dao.TaskDao
 import com.hisham.todolist.data.local.database.AppDatabase
 import dagger.Module
@@ -23,7 +24,7 @@ object DatabaseModule {
         context,
         AppDatabase::class.java,
         "todo-list.db",
-    ).addMigrations(AppDatabase.MIGRATION_2_3)
+    ).addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
         .fallbackToDestructiveMigration()
         .build()
 
@@ -31,4 +32,9 @@ object DatabaseModule {
     fun provideTaskDao(
         appDatabase: AppDatabase,
     ): TaskDao = appDatabase.taskDao()
+
+    @Provides
+    fun provideTaskCompletionRecordDao(
+        appDatabase: AppDatabase,
+    ): TaskCompletionRecordDao = appDatabase.taskCompletionRecordDao()
 }

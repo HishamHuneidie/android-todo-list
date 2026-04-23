@@ -103,6 +103,7 @@ class TasksViewModelTest {
                     Task(id = 1L, title = "First", position = 0),
                     Task(id = 2L, title = "Second", position = 1),
                 ),
+                clock = fixedClock,
             )
 
             val viewModel = viewModelFor(repository)
