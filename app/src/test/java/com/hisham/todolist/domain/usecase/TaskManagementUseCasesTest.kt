@@ -2,9 +2,7 @@ package com.hisham.todolist.domain.usecase
 
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
-import com.hisham.todolist.domain.repository.TaskRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.hisham.todolist.testdoubles.FakeTaskRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -130,37 +128,5 @@ class TaskManagementUseCasesTest {
 
         assertEquals("Target", useCase(2L)?.title)
         assertNull(useCase(99L))
-    }
-
-    private class FakeTaskRepository(
-        initialTasks: List<Task> = emptyList(),
-    ) : TaskRepository {
-        val tasks =
-            MutableStateFlow(initialTasks.sortedWith(compareBy<Task> { it.position }.thenBy { it.id }))
-
-        override fun observeTasks(): Flow<List<Task>> = tasks
-
-        override suspend fun getTask(taskId: Long): Task? =
-            tasks.value.firstOrNull { it.id == taskId }
-
-        override suspend fun upsertTask(task: Task) {
-            val nextId = if (task.id == 0L) {
-                (tasks.value.maxOfOrNull(Task::id) ?: 0L) + 1L
-            } else {
-                task.id
-            }
-            val updated = tasks.value.filterNot { it.id == nextId } + task.copy(id = nextId)
-            tasks.value = updated.sortedWith(compareBy<Task> { it.position }.thenBy { it.id })
-        }
-
-        override suspend fun deleteTask(taskId: Long) {
-            tasks.value = tasks.value.filterNot { it.id == taskId }
-        }
-
-        override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) = Unit
-
-        override suspend fun updateTaskProgress(taskId: Long, progress: Int) = Unit
-
-        override suspend fun reorderTasks(taskIdsInOrder: List<Long>) = Unit
     }
 }

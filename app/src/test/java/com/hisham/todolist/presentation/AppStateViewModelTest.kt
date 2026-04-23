@@ -2,24 +2,22 @@ package com.hisham.todolist.presentation
 
 import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.AuthState
-import com.hisham.todolist.domain.model.ThemeMode
 import com.hisham.todolist.domain.model.UserSession
-import com.hisham.todolist.domain.repository.AuthRepository
-import com.hisham.todolist.domain.repository.SettingsRepository
 import com.hisham.todolist.domain.usecase.ObserveAuthStateUseCase
 import com.hisham.todolist.domain.usecase.ObserveThemeModeUseCase
+import com.hisham.todolist.testdoubles.FakeAuthRepository
+import com.hisham.todolist.testdoubles.FakeSettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,11 +48,13 @@ class AppStateViewModelTest {
             assertFalse(viewModel.uiState.value.isAuthenticated)
 
             appRuntimeState.markBootstrapped()
-            authRepository.authState.value = AuthState.Authenticated(
-                UserSession(
-                    userId = "user-1",
-                    displayName = "Hisham",
-                    email = "hisham@example.com",
+            authRepository.emitAuthState(
+                AuthState.Authenticated(
+                    UserSession(
+                        userId = "user-1",
+                        displayName = "Hisham",
+                        email = "hisham@example.com",
+                    ),
                 ),
             )
             advanceUntilIdle()
@@ -62,6 +62,39 @@ class AppStateViewModelTest {
             assertTrue(viewModel.uiState.value.isBootstrapped)
             assertTrue(viewModel.uiState.value.isAuthenticated)
             collector.cancelAndJoin()
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `returns to unauthenticated state after logout`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val authRepository = FakeAuthRepository(
+                initialSession = UserSession(
+                    userId = "user-1",
+                    displayName = "Hisham",
+                    email = "hisham@example.com",
+                ),
+            )
+            val appRuntimeState = AppRuntimeState().apply { markBootstrapped() }
+            val viewModel = AppStateViewModel(
+                observeThemeModeUseCase = ObserveThemeModeUseCase(FakeSettingsRepository()),
+                observeAuthStateUseCase = ObserveAuthStateUseCase(authRepository),
+                appRuntimeState = appRuntimeState,
+            )
+
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isAuthenticated)
+
+            authRepository.signOut()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isBootstrapped)
+            assertFalse(viewModel.uiState.value.isAuthenticated)
+            assertEquals(AuthState.Unauthenticated, viewModel.uiState.value.authState)
         } finally {
             Dispatchers.resetMain()
         }
@@ -117,28 +150,6 @@ class AppStateViewModelTest {
             collector.cancelAndJoin()
         } finally {
             Dispatchers.resetMain()
-        }
-    }
-
-    private class FakeAuthRepository : AuthRepository {
-        val authState = MutableStateFlow<AuthState>(AuthState.Unauthenticated)
-
-        override fun observeAuthState(): Flow<AuthState> = authState
-
-        override suspend fun getCurrentSession(): UserSession? = null
-
-        override suspend fun signInWithGoogle(): Result<UserSession> = error("Not used")
-
-        override suspend fun signOut() = Unit
-    }
-
-    private class FakeSettingsRepository : SettingsRepository {
-        private val themeMode = MutableStateFlow(ThemeMode.SYSTEM)
-
-        override fun observeThemeMode(): Flow<ThemeMode> = themeMode
-
-        override suspend fun setThemeMode(themeMode: ThemeMode) {
-            this.themeMode.value = themeMode
         }
     }
 }

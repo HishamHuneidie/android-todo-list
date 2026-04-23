@@ -8,6 +8,7 @@ import com.hisham.todolist.data.local.dao.TaskDao
 import com.hisham.todolist.data.local.database.AppDatabase
 import com.hisham.todolist.data.local.entity.TaskEntity
 import com.hisham.todolist.domain.model.TaskCategory
+import com.hisham.todolist.testdoubles.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -16,11 +17,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.ZoneOffset
 
 @RunWith(RobolectricTestRunner::class)
@@ -126,15 +125,4 @@ class TaskRepositoryImplTest {
         createdAt = 10L,
         updatedAt = 10L,
     )
-
-    private class MutableClock(
-        var instant: Instant,
-        private val zone: ZoneId,
-    ) : Clock() {
-        override fun getZone(): ZoneId = zone
-
-        override fun withZone(zone: ZoneId): Clock = MutableClock(instant, zone)
-
-        override fun instant(): Instant = instant
-    }
 }

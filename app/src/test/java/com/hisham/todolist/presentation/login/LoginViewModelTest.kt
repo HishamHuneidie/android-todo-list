@@ -1,16 +1,13 @@
 package com.hisham.todolist.presentation.login
 
 import com.hisham.todolist.core.state.AppRuntimeState
-import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.UserSession
-import com.hisham.todolist.domain.repository.AuthRepository
 import com.hisham.todolist.domain.usecase.SignInWithGoogleUseCase
+import com.hisham.todolist.testdoubles.FakeAuthRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -26,9 +23,18 @@ class LoginViewModelTest {
 
     @Test
     fun `starts in idle state`() {
+        val repository = FakeAuthRepository().apply {
+            signInResult = Result.success(
+                UserSession(
+                    userId = "default-user",
+                    displayName = "Default",
+                    email = "default@example.com",
+                ),
+            )
+        }
         val viewModel = LoginViewModel(
             signInWithGoogleUseCase = SignInWithGoogleUseCase(
-                authRepository = FakeAuthRepository(),
+                authRepository = repository,
             ),
             appRuntimeState = AppRuntimeState(),
         )
@@ -42,18 +48,19 @@ class LoginViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
+            val repository = FakeAuthRepository().apply {
+                signInResult = Result.success(
+                    UserSession(
+                        userId = "user-1",
+                        displayName = "Hisham",
+                        email = "hisham@example.com",
+                        photoUrl = null,
+                    ),
+                )
+            }
             val viewModel = LoginViewModel(
                 signInWithGoogleUseCase = SignInWithGoogleUseCase(
-                    authRepository = FakeAuthRepository(
-                        signInResult = Result.success(
-                            UserSession(
-                                userId = "user-1",
-                                displayName = "Hisham",
-                                email = "hisham@example.com",
-                                photoUrl = null,
-                            ),
-                        ),
-                    ),
+                    authRepository = repository,
                 ),
                 appRuntimeState = AppRuntimeState(),
             )
@@ -76,13 +83,14 @@ class LoginViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
+            val repository = FakeAuthRepository().apply {
+                signInResult = Result.failure(
+                    IllegalStateException("No se pudo completar la autenticacion."),
+                )
+            }
             val viewModel = LoginViewModel(
                 signInWithGoogleUseCase = SignInWithGoogleUseCase(
-                    authRepository = FakeAuthRepository(
-                        signInResult = Result.failure(
-                            IllegalStateException("No se pudo completar la autenticacion."),
-                        ),
-                    ),
+                    authRepository = repository,
                 ),
                 appRuntimeState = AppRuntimeState(),
             )
@@ -105,13 +113,14 @@ class LoginViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
+            val repository = FakeAuthRepository().apply {
+                signInResult = Result.failure(
+                    IllegalStateException("Falta GOOGLE_WEB_CLIENT_ID."),
+                )
+            }
             val viewModel = LoginViewModel(
                 signInWithGoogleUseCase = SignInWithGoogleUseCase(
-                    authRepository = FakeAuthRepository(
-                        signInResult = Result.failure(
-                            IllegalStateException("Falta GOOGLE_WEB_CLIENT_ID."),
-                        ),
-                    ),
+                    authRepository = repository,
                 ),
                 appRuntimeState = AppRuntimeState(),
             )
@@ -134,7 +143,7 @@ class LoginViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         val gate = CompletableDeferred<Unit>()
-        val repository = FakeAuthRepository(
+        val repository = FakeAuthRepository().apply {
             signInAction = {
                 gate.await()
                 Result.success(
@@ -145,8 +154,8 @@ class LoginViewModelTest {
                         photoUrl = null,
                     ),
                 )
-            },
-        )
+            }
+        }
 
         try {
             val viewModel = LoginViewModel(
@@ -170,29 +179,41 @@ class LoginViewModelTest {
         }
     }
 
-    private class FakeAuthRepository(
-        private val signInResult: Result<UserSession> = Result.success(
-            UserSession(
-                userId = "default-user",
-                displayName = "Default",
-                email = "default@example.com",
-                photoUrl = null,
-            ),
-        ),
-        private val signInAction: (suspend () -> Result<UserSession>)? = null,
-    ) : AuthRepository {
-        var signInCalls: Int = 0
-            private set
+    @Test
+    fun `recovers from error on a later successful sign in`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeAuthRepository().apply {
+                signInResult = Result.failure(
+                    IllegalStateException("No se pudo completar la autenticacion."),
+                )
+            }
+            val viewModel = LoginViewModel(
+                signInWithGoogleUseCase = SignInWithGoogleUseCase(repository),
+                appRuntimeState = AppRuntimeState(),
+            )
 
-        override fun observeAuthState(): Flow<AuthState> = emptyFlow()
+            viewModel.onSignInClicked()
+            advanceUntilIdle()
 
-        override suspend fun getCurrentSession(): UserSession? = null
+            assertEquals(LoginStatus.ERROR, viewModel.uiState.value.status)
 
-        override suspend fun signInWithGoogle(): Result<UserSession> {
-            signInCalls += 1
-            return signInAction?.invoke() ?: signInResult
+            repository.signInResult = Result.success(
+                UserSession(
+                    userId = "user-1",
+                    displayName = "Hisham",
+                    email = "hisham@example.com",
+                ),
+            )
+
+            viewModel.onSignInClicked()
+            advanceUntilIdle()
+
+            assertEquals(LoginStatus.SUCCESS, viewModel.uiState.value.status)
+            assertNull(viewModel.uiState.value.errorMessage)
+        } finally {
+            Dispatchers.resetMain()
         }
-
-        override suspend fun signOut() = Unit
     }
 }

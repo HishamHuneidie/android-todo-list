@@ -1,19 +1,17 @@
 package com.hisham.todolist.presentation.profile
 
 import com.hisham.todolist.core.state.AppRuntimeState
-import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.ThemeMode
 import com.hisham.todolist.domain.model.UserSession
-import com.hisham.todolist.domain.repository.AuthRepository
-import com.hisham.todolist.domain.repository.SettingsRepository
 import com.hisham.todolist.domain.usecase.ChangeThemeUseCase
 import com.hisham.todolist.domain.usecase.GetUserUseCase
 import com.hisham.todolist.domain.usecase.ObserveThemeModeUseCase
 import com.hisham.todolist.domain.usecase.SignOutUseCase
+import com.hisham.todolist.testdoubles.FakeAuthRepository
+import com.hisham.todolist.testdoubles.FakeSettingsRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -33,7 +31,7 @@ class ProfileViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val authRepository = FakeAuthRepository(
-                session = UserSession(
+                initialSession = UserSession(
                     userId = "user-1",
                     displayName = "Forge Master",
                     email = "forge@example.com",
@@ -67,7 +65,7 @@ class ProfileViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
-            val authRepository = FakeAuthRepository(session = null)
+            val authRepository = FakeAuthRepository(initialSession = null)
             val settingsRepository = FakeSettingsRepository(ThemeMode.SYSTEM)
 
             val viewModel = ProfileViewModel(
@@ -92,7 +90,7 @@ class ProfileViewModelTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
         try {
-            val authRepository = FakeAuthRepository(session = null)
+            val authRepository = FakeAuthRepository(initialSession = null)
             val settingsRepository = FakeSettingsRepository(ThemeMode.SYSTEM)
             val viewModel = ProfileViewModel(
                 getUserUseCase = GetUserUseCase(authRepository),
@@ -119,7 +117,7 @@ class ProfileViewModelTest {
         Dispatchers.setMain(dispatcher)
         try {
             val authRepository = FakeAuthRepository(
-                session = UserSession(
+                initialSession = UserSession(
                     userId = "user-1",
                     displayName = "Forge Master",
                     email = "forge@example.com",
@@ -138,7 +136,7 @@ class ProfileViewModelTest {
             viewModel.signOut()
             advanceUntilIdle()
 
-            assertTrue(authRepository.signOutCalled)
+            assertEquals(1, authRepository.signOutCalls)
             assertFalse(viewModel.uiState.value.isAuthenticated)
             assertTrue(viewModel.uiState.value.isAuthResolved)
         } finally {
@@ -146,36 +144,47 @@ class ProfileViewModelTest {
         }
     }
 
-    private class FakeAuthRepository(
-        private val session: UserSession?,
-    ) : AuthRepository {
-        var signOutCalled: Boolean = false
-            private set
+    @Test
+    fun `theme updates are not blocked while sign out is still running`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val signOutGate = CompletableDeferred<Unit>()
+        try {
+            val authRepository = FakeAuthRepository(
+                initialSession = UserSession(
+                    userId = "user-1",
+                    displayName = "Forge Master",
+                    email = "forge@example.com",
+                ),
+            ).apply {
+                signOutAction = { signOutGate.await() }
+            }
+            val settingsRepository = FakeSettingsRepository(ThemeMode.SYSTEM)
+            val viewModel = ProfileViewModel(
+                getUserUseCase = GetUserUseCase(authRepository),
+                observeThemeModeUseCase = ObserveThemeModeUseCase(settingsRepository),
+                changeThemeUseCase = ChangeThemeUseCase(settingsRepository),
+                signOutUseCase = SignOutUseCase(authRepository),
+                appRuntimeState = AppRuntimeState(),
+            )
+            advanceUntilIdle()
 
-        override fun observeAuthState(): Flow<AuthState> = MutableStateFlow(
-            session?.let(AuthState::Authenticated) ?: AuthState.Unauthenticated,
-        )
+            viewModel.signOut()
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isAuthenticated)
 
-        override suspend fun getCurrentSession(): UserSession? = session
+            viewModel.updateThemeMode(ThemeMode.DARK)
+            advanceUntilIdle()
 
-        override suspend fun signInWithGoogle(): Result<UserSession> {
-            error("Not used in this test")
-        }
+            assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
 
-        override suspend fun signOut() {
-            signOutCalled = true
-        }
-    }
+            signOutGate.complete(Unit)
+            advanceUntilIdle()
 
-    private class FakeSettingsRepository(
-        initialThemeMode: ThemeMode,
-    ) : SettingsRepository {
-        val themeMode = MutableStateFlow(initialThemeMode)
-
-        override fun observeThemeMode(): Flow<ThemeMode> = themeMode
-
-        override suspend fun setThemeMode(themeMode: ThemeMode) {
-            this.themeMode.value = themeMode
+            assertFalse(viewModel.uiState.value.isAuthenticated)
+            assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        } finally {
+            Dispatchers.resetMain()
         }
     }
 }

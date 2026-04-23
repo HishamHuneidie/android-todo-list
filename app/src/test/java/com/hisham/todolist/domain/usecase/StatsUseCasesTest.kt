@@ -2,9 +2,7 @@ package com.hisham.todolist.domain.usecase
 
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCompletionRecord
-import com.hisham.todolist.domain.repository.TaskRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.hisham.todolist.testdoubles.FakeTaskRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -110,29 +108,4 @@ class StatsUseCasesTest {
 
             assertEquals(0.5, result, 0.0001)
         }
-
-    private class FakeTaskRepository(
-        initialTasks: List<Task> = emptyList(),
-        initialRecords: List<TaskCompletionRecord> = emptyList(),
-    ) : TaskRepository {
-        private val tasks = MutableStateFlow(initialTasks)
-        private val records = MutableStateFlow(initialRecords)
-
-        override fun observeTasks(): Flow<List<Task>> = tasks
-
-        override fun observeTaskCompletionRecords(): Flow<List<TaskCompletionRecord>> = records
-
-        override suspend fun getTask(taskId: Long): Task? =
-            tasks.value.firstOrNull { it.id == taskId }
-
-        override suspend fun upsertTask(task: Task) = Unit
-
-        override suspend fun deleteTask(taskId: Long) = Unit
-
-        override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) = Unit
-
-        override suspend fun updateTaskProgress(taskId: Long, progress: Int) = Unit
-
-        override suspend fun reorderTasks(taskIdsInOrder: List<Long>) = Unit
-    }
 }

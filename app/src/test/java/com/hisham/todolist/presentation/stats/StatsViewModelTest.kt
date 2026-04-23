@@ -2,14 +2,12 @@ package com.hisham.todolist.presentation.stats
 
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCompletionRecord
-import com.hisham.todolist.domain.repository.TaskRepository
 import com.hisham.todolist.domain.usecase.CalculateDailyAverageUseCase
 import com.hisham.todolist.domain.usecase.CalculateWeeklyEffectivenessUseCase
 import com.hisham.todolist.domain.usecase.GetMonthlyCompletedTasksUseCase
+import com.hisham.todolist.testdoubles.FakeTaskRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -30,6 +28,22 @@ class StatsViewModelTest {
         Instant.parse("2026-04-22T10:00:00Z"),
         ZoneOffset.UTC,
     )
+
+    @Test
+    fun `starts from a consistent default state`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val viewModel = viewModelFor(FakeTaskRepository())
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.weeklyEffectiveness)
+            assertEquals(0, viewModel.uiState.value.monthlyCompletedTasks)
+            assertEquals(0.0, viewModel.uiState.value.dailyAverage, 0.0001)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 
     @Test
     fun `combines weekly monthly and average metrics into ui state`() = runTest {
@@ -92,27 +106,58 @@ class StatsViewModelTest {
         }
     }
 
-    private class FakeTaskRepository(
-        initialTasks: List<Task> = emptyList(),
-        initialRecords: List<TaskCompletionRecord> = emptyList(),
-    ) : TaskRepository {
-        private val tasks = MutableStateFlow(initialTasks)
-        private val records = MutableStateFlow(initialRecords)
+    @Test
+    fun `reacts when only weekly effectiveness changes`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val repository = FakeTaskRepository(
+                initialRecords = listOf(
+                    TaskCompletionRecord(
+                        taskId = 1L,
+                        occurrenceEpochDay = LocalDate.of(2026, 4, 21).toEpochDay(),
+                        completedAt = Instant.parse("2026-04-21T10:00:00Z").toEpochMilli(),
+                    ),
+                ),
+            )
+            val viewModel = viewModelFor(repository)
+            advanceUntilIdle()
 
-        override fun observeTasks(): Flow<List<Task>> = tasks
+            assertEquals(0, viewModel.uiState.value.weeklyEffectiveness)
+            assertEquals(1, viewModel.uiState.value.monthlyCompletedTasks)
+            assertEquals(1.0 / 22.0, viewModel.uiState.value.dailyAverage, 0.0001)
 
-        override fun observeTaskCompletionRecords(): Flow<List<TaskCompletionRecord>> = records
+            repository.emitTasks(
+                listOf(
+                    Task(
+                        id = 1L,
+                        title = "Workout",
+                        isRecurrent = true,
+                        recurrenceDays = setOf(DayOfWeek.TUESDAY),
+                        createdAt = Instant.parse("2026-04-01T00:00:00Z").toEpochMilli(),
+                    ),
+                ),
+            )
+            advanceUntilIdle()
 
-        override suspend fun getTask(taskId: Long): Task? = null
-
-        override suspend fun upsertTask(task: Task) = Unit
-
-        override suspend fun deleteTask(taskId: Long) = Unit
-
-        override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) = Unit
-
-        override suspend fun updateTaskProgress(taskId: Long, progress: Int) = Unit
-
-        override suspend fun reorderTasks(taskIdsInOrder: List<Long>) = Unit
+            assertEquals(100, viewModel.uiState.value.weeklyEffectiveness)
+            assertEquals(1, viewModel.uiState.value.monthlyCompletedTasks)
+            assertEquals(1.0 / 22.0, viewModel.uiState.value.dailyAverage, 0.0001)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
+
+    private fun viewModelFor(repository: FakeTaskRepository): StatsViewModel =
+        StatsViewModel(
+            calculateWeeklyEffectivenessUseCase = CalculateWeeklyEffectivenessUseCase(
+                repository,
+                fixedClock,
+            ),
+            getMonthlyCompletedTasksUseCase = GetMonthlyCompletedTasksUseCase(
+                repository,
+                fixedClock,
+            ),
+            calculateDailyAverageUseCase = CalculateDailyAverageUseCase(repository, fixedClock),
+        )
 }

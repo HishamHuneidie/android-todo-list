@@ -3,17 +3,16 @@ package com.hisham.todolist.presentation.taskmanager
 import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
-import com.hisham.todolist.domain.repository.TaskRepository
 import com.hisham.todolist.domain.usecase.CreateQuickTaskUseCase
 import com.hisham.todolist.domain.usecase.CreateTaskUseCase
 import com.hisham.todolist.domain.usecase.DeleteTaskUseCase
 import com.hisham.todolist.domain.usecase.GetTaskByIdUseCase
 import com.hisham.todolist.domain.usecase.ObserveTasksUseCase
 import com.hisham.todolist.domain.usecase.UpdateTaskUseCase
+import com.hisham.todolist.testdoubles.FakeTaskRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -264,6 +263,112 @@ class TaskManagementViewModelTest {
         }
     }
 
+    @Test
+    fun `shows error and closes sheet when selected task no longer exists`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        try {
+            val viewModel = viewModelFor(FakeTaskRepository())
+
+            viewModel.onTaskClick(999L)
+            advanceUntilIdle()
+
+            assertEquals(
+                "La tarea seleccionada ya no existe.",
+                viewModel.uiState.value.errorMessage
+            )
+            assertFalse(viewModel.uiState.value.isSheetVisible)
+            assertTrue(viewModel.uiState.value.sheetMode is TaskSheetMode.Create)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `exposes saving state while persisting a task`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val gate = CompletableDeferred<Unit>()
+        try {
+            val repository = FakeTaskRepository().apply {
+                upsertAction = { gate.await() }
+            }
+            val viewModel = viewModelFor(repository)
+
+            viewModel.onCreateTaskClick()
+            viewModel.onTitleChange("Long running save")
+            viewModel.onSaveClick()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isSaving)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isSaving)
+            assertFalse(viewModel.uiState.value.isSheetVisible)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `exposes deleting state while removing a task`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val gate = CompletableDeferred<Unit>()
+        try {
+            val repository = FakeTaskRepository(
+                initialTasks = listOf(Task(id = 4L, title = "Disposable")),
+            ).apply {
+                deleteAction = { gate.await() }
+            }
+            val viewModel = viewModelFor(repository)
+
+            viewModel.onTaskClick(4L)
+            advanceUntilIdle()
+            viewModel.onDeleteClick()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isDeleting)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isDeleting)
+            assertTrue(repository.tasks.value.isEmpty())
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `exposes quick create submission state while request is running`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        val gate = CompletableDeferred<Unit>()
+        try {
+            val repository = FakeTaskRepository().apply {
+                upsertAction = { gate.await() }
+            }
+            val viewModel = viewModelFor(repository)
+
+            viewModel.onQuickCreateTextChange("Queued task")
+            viewModel.onQuickCreateSubmit()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isSubmittingQuickCreate)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isSubmittingQuickCreate)
+            assertEquals("", viewModel.uiState.value.quickCreateText)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun viewModelFor(repository: FakeTaskRepository): TaskManagementViewModel =
         TaskManagementViewModel(
             observeTasksUseCase = ObserveTasksUseCase(repository),
@@ -275,36 +380,4 @@ class TaskManagementViewModelTest {
             appRuntimeState = AppRuntimeState(),
             clock = fixedClock,
         )
-
-    private class FakeTaskRepository(
-        initialTasks: List<Task> = emptyList(),
-    ) : TaskRepository {
-        val tasks =
-            MutableStateFlow(initialTasks.sortedWith(compareBy<Task> { it.position }.thenBy { it.id }))
-
-        override fun observeTasks(): Flow<List<Task>> = tasks
-
-        override suspend fun getTask(taskId: Long): Task? =
-            tasks.value.firstOrNull { it.id == taskId }
-
-        override suspend fun upsertTask(task: Task) {
-            val nextId = if (task.id == 0L) {
-                (tasks.value.maxOfOrNull(Task::id) ?: 0L) + 1L
-            } else {
-                task.id
-            }
-            val updated = tasks.value.filterNot { it.id == nextId } + task.copy(id = nextId)
-            tasks.value = updated.sortedWith(compareBy<Task> { it.position }.thenBy { it.id })
-        }
-
-        override suspend fun deleteTask(taskId: Long) {
-            tasks.value = tasks.value.filterNot { it.id == taskId }
-        }
-
-        override suspend fun updateTaskCompletion(taskId: Long, isCompleted: Boolean) = Unit
-
-        override suspend fun updateTaskProgress(taskId: Long, progress: Int) = Unit
-
-        override suspend fun reorderTasks(taskIdsInOrder: List<Long>) = Unit
-    }
 }
