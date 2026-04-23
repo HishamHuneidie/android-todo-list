@@ -2,14 +2,15 @@ package com.hisham.todolist.presentation.loader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.usecase.InitializeAppUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 enum class LoaderStatus {
     LOADING,
@@ -25,6 +26,7 @@ data class LoaderUiState(
 @HiltViewModel
 class LoaderViewModel @Inject constructor(
     private val initializeAppUseCase: InitializeAppUseCase,
+    private val appRuntimeState: AppRuntimeState,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoaderUiState())
@@ -50,8 +52,10 @@ class LoaderViewModel @Inject constructor(
             } catch (throwable: Throwable) {
                 _uiState.value = LoaderUiState(
                     status = LoaderStatus.UNAUTHENTICATED,
-                    errorMessage = throwable.message ?: "No se pudo inicializar la aplicación.",
+                    errorMessage = throwable.message ?: "No se pudo inicializar la aplicacion.",
                 )
+            } finally {
+                appRuntimeState.markBootstrapped()
             }
         }
     }

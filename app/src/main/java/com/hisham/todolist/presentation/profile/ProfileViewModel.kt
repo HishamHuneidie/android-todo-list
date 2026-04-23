@@ -2,6 +2,7 @@ package com.hisham.todolist.presentation.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.ThemeMode
 import com.hisham.todolist.domain.model.UserSession
 import com.hisham.todolist.domain.usecase.ChangeThemeUseCase
@@ -32,6 +33,7 @@ class ProfileViewModel @Inject constructor(
     observeThemeModeUseCase: ObserveThemeModeUseCase,
     private val changeThemeUseCase: ChangeThemeUseCase,
     private val signOutUseCase: SignOutUseCase,
+    private val appRuntimeState: AppRuntimeState,
 ) : ViewModel() {
 
     private val userSession = MutableStateFlow<UserSession?>(null)
@@ -75,7 +77,9 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch {
-            signOutUseCase()
+            appRuntimeState.trackAuthOperation {
+                signOutUseCase()
+            }
             userSession.value = null
             isAuthResolved.value = true
         }

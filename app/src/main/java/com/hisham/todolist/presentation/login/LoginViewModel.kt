@@ -2,6 +2,7 @@ package com.hisham.todolist.presentation.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.usecase.SignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -36,6 +37,7 @@ sealed interface LoginEvent {
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
+    private val appRuntimeState: AppRuntimeState,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -50,22 +52,24 @@ class LoginViewModel @Inject constructor(
         _uiState.value = LoginUiState(status = LoginStatus.LOADING)
 
         viewModelScope.launch {
-            signInWithGoogleUseCase().fold(
-                onSuccess = {
-                    _uiState.value = LoginUiState(status = LoginStatus.SUCCESS)
-                    _events.send(LoginEvent.NavigateToPending)
-                },
-                onFailure = { throwable ->
-                    if (throwable is CancellationException) {
-                        throw throwable
-                    }
+            appRuntimeState.trackAuthOperation {
+                signInWithGoogleUseCase().fold(
+                    onSuccess = {
+                        _uiState.value = LoginUiState(status = LoginStatus.SUCCESS)
+                        _events.send(LoginEvent.NavigateToPending)
+                    },
+                    onFailure = { throwable ->
+                        if (throwable is CancellationException) {
+                            throw throwable
+                        }
 
-                    _uiState.value = LoginUiState(
-                        status = LoginStatus.ERROR,
-                        errorMessage = throwable.toUserMessage(),
-                    )
-                },
-            )
+                        _uiState.value = LoginUiState(
+                            status = LoginStatus.ERROR,
+                            errorMessage = throwable.toUserMessage(),
+                        )
+                    },
+                )
+            }
         }
     }
 

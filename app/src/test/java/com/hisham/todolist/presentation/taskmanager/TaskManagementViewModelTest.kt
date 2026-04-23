@@ -1,5 +1,6 @@
 package com.hisham.todolist.presentation.taskmanager
 
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
 import com.hisham.todolist.domain.repository.TaskRepository
@@ -260,6 +261,7 @@ class TaskManagementViewModelTest {
             updateTaskUseCase = UpdateTaskUseCase(repository, fixedClock),
             deleteTaskUseCase = DeleteTaskUseCase(repository),
             createQuickTaskUseCase = CreateQuickTaskUseCase(repository, fixedClock),
+            appRuntimeState = AppRuntimeState(),
         )
 
     private class FakeTaskRepository(

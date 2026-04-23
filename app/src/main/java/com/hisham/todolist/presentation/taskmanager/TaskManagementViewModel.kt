@@ -2,6 +2,7 @@ package com.hisham.todolist.presentation.taskmanager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
 import com.hisham.todolist.domain.usecase.CreateQuickTaskUseCase
@@ -113,6 +114,7 @@ class TaskManagementViewModel @Inject constructor(
     private val updateTaskUseCase: UpdateTaskUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val createQuickTaskUseCase: CreateQuickTaskUseCase,
+    private val appRuntimeState: AppRuntimeState,
 ) : ViewModel() {
 
     private val formState = MutableStateFlow(TaskFormState())
@@ -205,7 +207,9 @@ class TaskManagementViewModel @Inject constructor(
         viewModelScope.launch {
             isSubmittingQuickCreate.value = true
             try {
-                createQuickTaskUseCase(title)
+                appRuntimeState.trackTaskOperation {
+                    createQuickTaskUseCase(title)
+                }
                 quickCreateText.value = ""
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: "No se pudo crear la tarea."
@@ -331,19 +335,26 @@ class TaskManagementViewModel @Inject constructor(
                 return@launch
             }
 
+            val taskToPersist = when (val mode = sheetMode.value) {
+                TaskSheetMode.Create -> validated.toNewTask()
+
+                is TaskSheetMode.Edit -> {
+                    val currentTask = getTaskByIdUseCase(mode.taskId)
+                    if (currentTask == null) {
+                        errorMessage.value = "La tarea seleccionada ya no existe."
+                        dismissSheet()
+                        return@launch
+                    }
+                    validated.toUpdatedTask(currentTask)
+                }
+            }
+
             isSaving.value = true
             try {
-                when (val mode = sheetMode.value) {
-                    TaskSheetMode.Create -> createTaskUseCase(validated.toNewTask())
-
-                    is TaskSheetMode.Edit -> {
-                        val currentTask = getTaskByIdUseCase(mode.taskId)
-                        if (currentTask == null) {
-                            errorMessage.value = "La tarea seleccionada ya no existe."
-                            dismissSheet()
-                            return@launch
-                        }
-                        updateTaskUseCase(validated.toUpdatedTask(currentTask))
+                appRuntimeState.trackTaskOperation {
+                    when (sheetMode.value) {
+                        TaskSheetMode.Create -> createTaskUseCase(taskToPersist)
+                        is TaskSheetMode.Edit -> updateTaskUseCase(taskToPersist)
                     }
                 }
                 dismissSheet()
@@ -364,7 +375,9 @@ class TaskManagementViewModel @Inject constructor(
         viewModelScope.launch {
             isDeleting.value = true
             try {
-                deleteTaskUseCase(taskId)
+                appRuntimeState.trackTaskOperation {
+                    deleteTaskUseCase(taskId)
+                }
                 dismissSheet()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: "No se pudo eliminar la tarea."

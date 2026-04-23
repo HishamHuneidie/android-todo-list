@@ -1,5 +1,6 @@
 package com.hisham.todolist.presentation.loader
 
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.UserSession
@@ -8,9 +9,6 @@ import com.hisham.todolist.domain.repository.TaskRepository
 import com.hisham.todolist.domain.usecase.CheckUserSessionUseCase
 import com.hisham.todolist.domain.usecase.InitializeAppUseCase
 import com.hisham.todolist.domain.usecase.PrepareTasksForCurrentDayUseCase
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +23,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoaderViewModelTest {
@@ -50,6 +51,7 @@ class LoaderViewModelTest {
                     session = session,
                     tasksFlow = flowOf(listOf(Task(id = 1L, title = "Daily review"))),
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             advanceUntilIdle()
@@ -71,6 +73,7 @@ class LoaderViewModelTest {
                     session = null,
                     tasksFlow = flowOf(listOf(Task(id = 1L, title = "Backlog cleanup"))),
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             advanceUntilIdle()
@@ -101,6 +104,7 @@ class LoaderViewModelTest {
                         throw IllegalStateException("db unavailable")
                     },
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             advanceUntilIdle()

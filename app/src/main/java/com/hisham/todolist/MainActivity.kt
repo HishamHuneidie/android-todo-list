@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
             val themeMode by appStateViewModel.themeMode.collectAsStateWithLifecycle()
 
             TodoListTheme(themeMode = themeMode) {
-                TodoListRoot()
+                TodoListRoot(appStateViewModel = appStateViewModel)
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.hisham.todolist.presentation.pending
 
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.repository.TaskRepository
 import com.hisham.todolist.domain.usecase.ObservePendingTaskSectionsUseCase
@@ -234,6 +235,7 @@ class TasksViewModelTest {
             ),
             toggleTaskCompletionUseCase = ToggleTaskCompletionUseCase(repository),
             reorderTasksUseCase = ReorderTasksUseCase(repository),
+            appRuntimeState = AppRuntimeState(),
         )
 
     private class FakeTaskRepository(

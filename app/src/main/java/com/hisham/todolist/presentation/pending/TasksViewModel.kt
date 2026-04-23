@@ -2,6 +2,7 @@ package com.hisham.todolist.presentation.pending
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.Task
 import com.hisham.todolist.domain.model.TaskCategory
 import com.hisham.todolist.domain.usecase.ObservePendingTaskSectionsUseCase
@@ -32,6 +33,7 @@ data class TasksUiState(
     val tasks: List<TaskListItemUiModel> = emptyList(),
     val completedTasks: List<TaskListItemUiModel> = emptyList(),
     val draggingTaskId: Long? = null,
+    val isMutatingTask: Boolean = false,
     val errorMessage: String? = null,
 )
 
@@ -40,15 +42,18 @@ class TasksViewModel @Inject constructor(
     observePendingTaskSectionsUseCase: ObservePendingTaskSectionsUseCase,
     private val toggleTaskCompletionUseCase: ToggleTaskCompletionUseCase,
     private val reorderTasksUseCase: ReorderTasksUseCase,
+    private val appRuntimeState: AppRuntimeState,
 ) : ViewModel() {
 
     private data class TasksBaseUiState(
         val sections: PendingTaskSections,
         val draggingTaskId: Long?,
+        val isMutatingTask: Boolean,
         val errorMessage: String?,
     )
 
     private val draggingTaskId = MutableStateFlow<Long?>(null)
+    private val isMutatingTask = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val previewTasks = MutableStateFlow<List<TaskListItemUiModel>?>(null)
 
@@ -62,11 +67,13 @@ class TasksViewModel @Inject constructor(
     val uiState: StateFlow<TasksUiState> = combine(
         pendingTasks,
         draggingTaskId,
+        isMutatingTask,
         errorMessage,
-    ) { sections, draggedTaskId, error ->
+    ) { sections, draggedTaskId, isMutating, error ->
         TasksBaseUiState(
             sections = sections,
             draggingTaskId = draggedTaskId,
+            isMutatingTask = isMutating,
             errorMessage = error,
         )
     }.combine(previewTasks) { baseState, preview ->
@@ -75,6 +82,7 @@ class TasksViewModel @Inject constructor(
             tasks = mappedTasks,
             completedTasks = baseState.sections.completedTasks.map { task -> task.toUiModel() },
             draggingTaskId = baseState.draggingTaskId,
+            isMutatingTask = baseState.isMutatingTask,
             errorMessage = baseState.errorMessage,
         )
     }.stateIn(
@@ -88,13 +96,18 @@ class TasksViewModel @Inject constructor(
         isCompleted: Boolean,
     ) {
         viewModelScope.launch {
+            isMutatingTask.value = true
             try {
-                toggleTaskCompletionUseCase(
-                    taskId = taskId,
-                    isCompleted = isCompleted,
-                )
+                appRuntimeState.trackTaskOperation {
+                    toggleTaskCompletionUseCase(
+                        taskId = taskId,
+                        isCompleted = isCompleted,
+                    )
+                }
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: "No se pudo actualizar la tarea."
+            } finally {
+                isMutatingTask.value = false
             }
         }
     }
@@ -128,11 +141,15 @@ class TasksViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            isMutatingTask.value = true
             try {
-                reorderTasksUseCase(taskIdsInOrder)
+                appRuntimeState.trackTaskOperation {
+                    reorderTasksUseCase(taskIdsInOrder)
+                }
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: "No se pudo guardar el nuevo orden."
             } finally {
+                isMutatingTask.value = false
                 previewTasks.value = null
                 draggingTaskId.value = null
             }

@@ -1,5 +1,6 @@
 package com.hisham.todolist.presentation.profile
 
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.ThemeMode
 import com.hisham.todolist.domain.model.UserSession
@@ -46,6 +47,7 @@ class ProfileViewModelTest {
                 observeThemeModeUseCase = ObserveThemeModeUseCase(settingsRepository),
                 changeThemeUseCase = ChangeThemeUseCase(settingsRepository),
                 signOutUseCase = SignOutUseCase(authRepository),
+                appRuntimeState = AppRuntimeState(),
             )
             advanceUntilIdle()
 
@@ -73,6 +75,7 @@ class ProfileViewModelTest {
                 observeThemeModeUseCase = ObserveThemeModeUseCase(settingsRepository),
                 changeThemeUseCase = ChangeThemeUseCase(settingsRepository),
                 signOutUseCase = SignOutUseCase(authRepository),
+                appRuntimeState = AppRuntimeState(),
             )
             advanceUntilIdle()
 
@@ -96,6 +99,7 @@ class ProfileViewModelTest {
                 observeThemeModeUseCase = ObserveThemeModeUseCase(settingsRepository),
                 changeThemeUseCase = ChangeThemeUseCase(settingsRepository),
                 signOutUseCase = SignOutUseCase(authRepository),
+                appRuntimeState = AppRuntimeState(),
             )
             advanceUntilIdle()
 
@@ -127,6 +131,7 @@ class ProfileViewModelTest {
                 observeThemeModeUseCase = ObserveThemeModeUseCase(settingsRepository),
                 changeThemeUseCase = ChangeThemeUseCase(settingsRepository),
                 signOutUseCase = SignOutUseCase(authRepository),
+                appRuntimeState = AppRuntimeState(),
             )
             advanceUntilIdle()
 

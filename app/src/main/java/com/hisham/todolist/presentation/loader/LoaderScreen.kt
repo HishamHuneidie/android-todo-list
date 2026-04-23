@@ -9,11 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,33 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun LoaderRoute(
-    onAuthenticated: () -> Unit,
-    onUnauthenticated: () -> Unit,
     viewModel: LoaderViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var hasNavigated by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.status) {
-        if (hasNavigated) return@LaunchedEffect
-
-        when (uiState.status) {
-            LoaderStatus.AUTHENTICATED -> {
-                hasNavigated = true
-                onAuthenticated()
-            }
-            LoaderStatus.UNAUTHENTICATED -> {
-                hasNavigated = true
-                onUnauthenticated()
-            }
-            LoaderStatus.LOADING -> Unit
-        }
-    }
-
+    viewModel
     LoaderScreen()
 }
 

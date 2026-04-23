@@ -1,5 +1,6 @@
 package com.hisham.todolist.presentation.login
 
+import com.hisham.todolist.core.state.AppRuntimeState
 import com.hisham.todolist.domain.model.AuthState
 import com.hisham.todolist.domain.model.UserSession
 import com.hisham.todolist.domain.repository.AuthRepository
@@ -29,6 +30,7 @@ class LoginViewModelTest {
             signInWithGoogleUseCase = SignInWithGoogleUseCase(
                 authRepository = FakeAuthRepository(),
             ),
+            appRuntimeState = AppRuntimeState(),
         )
 
         assertEquals(LoginStatus.IDLE, viewModel.uiState.value.status)
@@ -53,6 +55,7 @@ class LoginViewModelTest {
                         ),
                     ),
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             val event = async { viewModel.events.first() }
@@ -81,6 +84,7 @@ class LoginViewModelTest {
                         ),
                     ),
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             viewModel.onSignInClicked()
@@ -109,6 +113,7 @@ class LoginViewModelTest {
                         ),
                     ),
                 ),
+                appRuntimeState = AppRuntimeState(),
             )
 
             viewModel.onSignInClicked()
@@ -146,6 +151,7 @@ class LoginViewModelTest {
         try {
             val viewModel = LoginViewModel(
                 signInWithGoogleUseCase = SignInWithGoogleUseCase(authRepository = repository),
+                appRuntimeState = AppRuntimeState(),
             )
 
             viewModel.onSignInClicked()
