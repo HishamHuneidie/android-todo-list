@@ -190,7 +190,18 @@ class TaskManagementViewModelTest {
             val repository = FakeTaskRepository(
                 initialTasks = listOf(
                     Task(id = 1L, title = "Active"),
-                    Task(id = 2L, title = "Done", isCompleted = true),
+                    Task(
+                        id = 2L,
+                        title = "Done recently",
+                        isCompleted = true,
+                        updatedAt = fixedClock.millis(),
+                    ),
+                    Task(
+                        id = 3L,
+                        title = "Done earlier",
+                        isCompleted = true,
+                        updatedAt = fixedClock.millis() - (8 * 86_400_000L),
+                    ),
                 ),
             )
             val viewModel = viewModelFor(repository)
@@ -201,7 +212,7 @@ class TaskManagementViewModelTest {
                 viewModel.uiState.value.tasks.map(TaskManagementListItemUiModel::title)
             )
             assertEquals(
-                listOf("Done"),
+                listOf("Done recently"),
                 viewModel.uiState.value.completedTasks.map(TaskManagementListItemUiModel::title),
             )
         } finally {
@@ -262,6 +273,7 @@ class TaskManagementViewModelTest {
             deleteTaskUseCase = DeleteTaskUseCase(repository),
             createQuickTaskUseCase = CreateQuickTaskUseCase(repository, fixedClock),
             appRuntimeState = AppRuntimeState(),
+            clock = fixedClock,
         )
 
     private class FakeTaskRepository(

@@ -18,7 +18,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
 import javax.inject.Inject
 
 enum class TaskIconOption(
@@ -115,6 +118,7 @@ class TaskManagementViewModel @Inject constructor(
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val createQuickTaskUseCase: CreateQuickTaskUseCase,
     private val appRuntimeState: AppRuntimeState,
+    private val clock: Clock,
 ) : ViewModel() {
 
     private val formState = MutableStateFlow(TaskFormState())
@@ -169,10 +173,19 @@ class TaskManagementViewModel @Inject constructor(
         sheetState,
         operationState,
     ) { observedTasks, sheet, operation ->
+        val currentDate = LocalDate.now(clock)
         val mappedTasks = observedTasks.map { task -> task.toManagementListItem() }
         TaskManagementUiState(
             tasks = mappedTasks.filterNot(TaskManagementListItemUiModel::isCompleted),
-            completedTasks = mappedTasks.filter(TaskManagementListItemUiModel::isCompleted),
+            completedTasks = observedTasks
+                .filter { task ->
+                    task.isCompleted && task.wasCompletedWithinLastDays(
+                        currentDate,
+                        clock,
+                        7
+                    )
+                }
+                .map { task -> task.toManagementListItem() },
             quickCreateText = operation.quickCreateText,
             isSubmittingQuickCreate = operation.isSubmittingQuickCreate,
             isSheetVisible = sheet.isSheetVisible,
@@ -415,6 +428,18 @@ class TaskManagementViewModel @Inject constructor(
             isRecurrent = isRecurrent,
             iconName = iconName,
         )
+
+    private fun Task.wasCompletedWithinLastDays(
+        currentDate: LocalDate,
+        clock: Clock,
+        days: Long,
+    ): Boolean {
+        val completedDate = Instant.ofEpochMilli(updatedAt)
+            .atZone(clock.zone)
+            .toLocalDate()
+        val oldestVisibleDate = currentDate.minusDays(days - 1)
+        return !completedDate.isBefore(oldestVisibleDate) && !completedDate.isAfter(currentDate)
+    }
 
     private fun Task.toFormState(): TaskFormState = TaskFormState(
         title = title,
